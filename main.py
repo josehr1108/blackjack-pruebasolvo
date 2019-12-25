@@ -1,88 +1,67 @@
 import random
+from functools import reduce
 
-cardsValue = ['A',2,3,4,5,6,7,8,9,'J','Q','K']
-typeValue = ['Hearts','Diamonds','Clubs','Spades']
-initialDeck = []
+MAZE_MAX_VALUE = 21
+DECK_CARDS_AMOUNT = 52
+
+cardValues = ('A',2,3,4,5,6,7,8,9,'J','Q','K')
+cardTypes = ('Hearts','Diamonds','Clubs','Spades')
+initialDeck = [(random.choice(cardValues),random.choice(cardTypes)) for x in range(DECK_CARDS_AMOUNT)]
 players = []
-deckCardsAmount = 52
-mazeValueGoal = 21
-
-class Player():
-    def __init__(self,name):
-        self.name = name
-        self.maze = []
-        self.mazeValue = 0
-
-def initDeck():
-    for i in range(deckCardsAmount): #random initializes the deck
-        cardIndex = random.randint(0, len(cardsValue) - 1)
-        typeIndex = random.randint(0, len(typeValue) - 1)
-        initialDeck.append({'card': cardsValue[cardIndex], 'type': typeValue[typeIndex]})
 
 def distributeCards(numPlayers):
     for i in range(numPlayers):   #initially distribute 2 cards per player, each player has a maze or deck
-        player = Player("Player " + str(i+1))
-        player.maze.append(initialDeck.pop())
-        player.maze.append(initialDeck.pop())
+        player = {"name": f"Player {i+1}", "maze": initialDeck[:2]}   
+        del initialDeck[:2]
         players.append(player)
 
 def beginGame():
-    currentPlayerIndex = 0
-    while currentPlayerIndex != len(players): #iterate each player and ask for new cards
-        currentPlayer = players[currentPlayerIndex]
-        response = input(f"({currentPlayer.name})You want another card?(s/n)")
-        if response == 's':
-            newCard = initialDeck.pop() #pop from main deck and insert into player's deck
-            currentPlayer.maze.append(newCard)
-        elif response == 'n':
-            currentPlayerIndex += 1  #goes with the other player
-        else:
-            print("Invalid option")
-            continue
+    for player in players:
+        response = input(f"({player['name']})You want a card?(y/n)")
+        while response != 'n':
+            if response == 'y':
+                player['maze'] += [initialDeck.pop()]
+            else:
+                print("Invalid option")
+                response = input(f"({player['name']})You want another card?(y/n)")
+                continue
+            response = input(f"({player['name']})You want another card?(y/n)")
+
+def getCardValue(cardVal):
+    if cardVal in ('J','Q','K',):
+        return 10
+    elif cardVal == 'A':
+        return (1,11)[random.randrange(0,2) == 1]
+    else:
+        return cardVal
 
 def getMazeValue(maze):
-    sum = 0
-    for card in maze:
-        cardValue = card['card']
-        if cardValue in ('J','Q','K',):     #those values are equals to 10
-            sum += 10
-        elif cardValue == 'A':  #handle multiple A's values to not pass the limit
-            tempSum = sum + 11
-            if tempSum > 21:
-                sum += 1
-            else:
-                sum += 11
-        else:
-            sum += cardValue
-    return sum
+    return reduce(lambda accumulator,card: accumulator + getCardValue(card[0]),maze,0)
 
 def getWinner():
-    winnerValue = 0
+    resultsList = [tup for tup in ((player,getMazeValue(player['maze'])) for player in players) if tup[1] <= 21]
+    resultsList.sort(key = lambda obj: obj[1], reverse=True) #sort by final score 
     winner = None
-    for player in players:
-        playerMazeValue = getMazeValue(player.maze) #get the player maze value to confirm who wins
-        if playerMazeValue > 21:
-            print(f"{player.name} lose")
-        else:
-            if playerMazeValue > winnerValue:   #somebody else has a better deck, it wins
-                winnerValue = playerMazeValue
-                winner = player
-            elif playerMazeValue == winnerValue and len(player.maze) == 5:
-                winner = player
+    winnerScore = 0
+    for result in resultsList[:3]:      #iterate through 3 highest scores
+        if result[1] > winnerScore:     #compare scores to max score
+             winner = result[0]         #winner dict (name and maze keys)
+             winnerScore = result[1]    #winner maze value
+        elif result[1] == winnerScore and len(result[0]['maze']) == 5:
+            winner = result[0]
     if winner != None:
-        print(f"Winner is: {winner.name}")
-        printPlayerMaze(winner)
+        print(f"Winner is: {winner['name']}")
+        printMaze(winner['maze'])
     else:
-        print(f"No one wins")
+        print("No one wins")
 
-def printPlayerMaze(player):
+def printMaze(maze):
     print("Winner maze:")
-    for card in player.maze:
-        print(f"{card['card']} of {card['type']}")
+    for card in maze:
+        print(f"{card[0]} of {card[1]}")
 
 if  __name__ == "__main__":     #call from terminal with python main.py
     numPlayers = int(input("How many players you want? "))
-    initDeck()
     distributeCards(numPlayers)
     beginGame()
     getWinner()
